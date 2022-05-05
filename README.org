@@ -4,31 +4,6 @@
 
 In this document, I will be programming an evolutionary neural net. It will vary widely, so that it can discover any hidden structures in the data. It will be programmed in Python, but written in literate style in an org-mode document in ~Emacs~, using the ~Noweb~ syntax.
 
-* Details and Tracking :noexport:
-
-** TODO Building
-
-- [X] [[*Node Structure][Node]]
-- [X] Input and Output Nodes
-- [-] Overall structure
-- [X] Data input
-- [X] Feature engineering
-- [ ] Error minimizing
-- [-] Evolution algorithm
-- [ ] Starting conditions
-- [-] Activation fns
-
-** TODO Testing
-
-- [ ] [[*Node Structure][Node]]
-- [ ] Input and Output Nodes
-- [ ] Overall structure
-- [ ] Data input
-- [ ] Feature engineering
-- [ ] Error minimizing
-- [ ] Evolution algorithm
-- [ ] Starting conditions
-- [ ] Activation fns
 
 * Overall Structure
 
