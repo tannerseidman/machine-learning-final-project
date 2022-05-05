@@ -1,0 +1,252 @@
+#+TITLE: Final Project
+#+property: header-args :session proj :tangle no :noweb yes :eval no
+#+startup: fold
+
+In this document, I will be programming an evolutionary neural net. It will vary widely, so that it can discover any hidden structures in the data. It will be programmed in Python, but written in literate style in an org-mode document in ~Emacs~, using the ~Noweb~ syntax.
+
+* Details and Tracking :noexport:
+
+** TODO Building
+
+- [X] [[*Node Structure][Node]]
+- [X] Input and Output Nodes
+- [-] Overall structure
+- [X] Data input
+- [X] Feature engineering
+- [ ] Error minimizing
+- [-] Evolution algorithm
+- [ ] Starting conditions
+- [-] Activation fns
+
+** TODO Testing
+
+- [ ] [[*Node Structure][Node]]
+- [ ] Input and Output Nodes
+- [ ] Overall structure
+- [ ] Data input
+- [ ] Feature engineering
+- [ ] Error minimizing
+- [ ] Evolution algorithm
+- [ ] Starting conditions
+- [ ] Activation fns
+
+* Overall Structure
+
+The overall structure of the program will go like this:
+
+#+begin_src python :tangle evolutionary_weather_net.py
+<<shebang>>
+
+<<imports>>
+<<imports-from>>
+
+<<load-data>>
+
+<<Activation-fns>>
+
+<<Node-class>>
+
+<<Input-class>>
+#+end_src
+
+Library imports will go in here:
+#+begin_src python :noweb-ref imports :noweb-sep " "
+import
+#+end_src
+
+Or here:
+#+begin_src python :noweb-ref imports-from
+#+end_src
+
+We're using ~Python 3.10.4~ for this project, so this is the shebang:
+#+name: shebang
+#+begin_src python
+#!/usr/bin/python3
+#+end_src
+
+* Importing data
+
+In order to load data, we need to read csv files. For this, we'll use the library ~csv~, and we'll import that here:
+#+begin_src python :noweb-ref imports :noweb-sep ", "
+csv
+#+end_src
+
+We'll also want a library for working with dates, and for that we'll use ~datetime~:
+#+begin_src python :noweb-ref imports-from
+from datetime import datetime as dt
+#+end_src
+
+Here we load the data for each training and validation section. The function ~load_data()~ is defined below this section, but we use it here to create the list variables for training and validation.
+#+name: load-data
+#+begin_src python
+<<load-data-fn>>
+
+# Blacksburg data
+bb_train_1 = load_data(["blacksburg/2010.csv", "blacksburg/2011.csv", "blacksburg/2012.csv"])
+bb_validation_1 = load_data(["blacksburg/2013.csv"])
+bb_train_2 = load_data(["blacksburg/2014.csv", "blacksburg/2015.csv", "blacksburg/2016.csv"])
+bb_validation_2 = load_data(["blacksburg/2017.csv"])
+bb_train_3 = load_data(["blacksburg/2018.csv", "blacksburg/2019.csv", "blacksburg/2020.csv"])
+bb_validation_3 = load_data(["blacksburg/2021.csv"])
+bb_train = [bb_train_1, bb_train_2, bb_train_3]
+bb_valid = [bb_validation_1, bb_validation_2, bb_validation_3]
+
+# San Francisco data
+sf_train_1 = load_data(["sanfrancisco/2010.csv", "sanfrancisco/2011.csv", "sanfrancisco/2012.csv"])
+sf_validation_1 = load_data(["sanfrancisco/2013.csv"])
+sf_train_2 = load_data(["sanfrancisco/2014.csv", "sanfrancisco/2015.csv", "sanfrancisco/2016.csv"])
+sf_validation_2 = load_data(["sanfrancisco/2017.csv"])
+sf_train_3 = load_data(["sanfrancisco/2018.csv", "sanfrancisco/2019.csv", "sanfrancisco/2020.csv"])
+sf_validation_3 = load_data(["sanfrancisco/2021.csv"])
+sf_train = [sf_train_1, sf_train_2, sf_train_3]
+sf_valid = [sf_validation_1, sf_validation_2, sf_validation_3]
+
+# Dublin data
+db_train_1 = load_data(["dublin/2010.csv", "dublin/2011.csv", "dublin/2012.csv"])
+db_validation_1 = load_data(["dublin/2013.csv"])
+db_train_2 = load_data(["dublin/2014.csv", "dublin/2015.csv", "dublin/2016.csv"])
+db_validation_2 = load_data(["dublin/2017.csv"])
+db_train_3 = load_data(["dublin/2018.csv", "dublin/2019.csv", "dublin/2020.csv"])
+db_validation_3 = load_data(["dublin/2021.csv"])
+db_train = [db_train_1, db_train_2, db_train_3]
+db_valid = [db_validation_1, db_validation_2, db_validation_3]
+#+end_src
+
+The data has a lot of features we're uninterested in. I predict that the features that will be the most useful for weather prediction will be dry bulb temperature, wet bulb temperature, and pressure, but I'll revisit this when I have run this a few times.
+We also use a function, ~is_valid_number()~, which we have not yet defined, but is defined below this section.
+#+name: load-data-fn
+#+begin_src python
+<<valid-number-fn>>
+
+def load_data(input_files):
+    loaded_data = []
+    for filename in input_files:
+        with open(filename) as data:
+            reader = csv.DictReader(data)
+            for row in reader:
+                date = dt.fromisoformat(row['DATE'])
+                dry_bulb = 0.0
+                wet_bulb = 0.0
+                pressure = 0.0
+
+                str_dry_bulb = row['HourlyDryBulbTemperature']
+                str_wet_bulb = row['HourlyWetBulbTemperature']
+                str_pressure = row['HourlyStationPressure']
+
+                if is_valid_number(str_dry_bulb): dry_bulb = float(str_dry_bulb)
+                if is_valid_number(str_wet_bulb): wet_bulb = float(str_wet_bulb)
+                if is_valid_number(str_pressure): pressure = float(str_pressure)
+
+                loaded_data.append({ 'date': date,
+                                 'dry_bulb': dry_bulb,
+                                 'wet_bulb': wet_bulb,
+                                 'pressure': pressure })
+    return loaded_data
+#+end_src
+
+This function simply checks to see if the number is valid. As soon as it detects a character which is not a digit, period, or negative sign, it returns invalid.
+#+name: valid-number-fn
+#+begin_src python
+def is_valid_number(str_num):
+    for char in str_num:
+        if not char.isnumeric() or not char == '-' or not char = '.':
+            return False
+    return True
+#+end_src
+
+* Node Structure
+
+The first step is figuring out the ~Node~ structure. Each ~Node~ should have a set of input ~Nodes~, a set of weights attached to those inputs, and a set of ~Nodes~ to output to. ~Nodes~ also need an activation function, and a buffer to hold their output. The ~Node~ class is written below:
+
+#+name: Node-class
+#+begin_src python
+class Node:
+    def __init__(self, input_nodes, weights, output_nodes, activation_fn):
+        self.input_nodes = input_nodes
+        self.weights = weights
+        self.output_nodes = output_nodes
+        self.activation_fn = activation_fn
+
+        # Output sent to output_nodes
+        self.output = None
+
+    <<Node-update-fn>>
+#+end_src
+
+The ~update()~ function fills in the ~output~ buffer in the ~Node~ class by first grabbing the outputs of previous ~Nodes~, and then doing the standard neural net operation- computing a weighted sum of the inputs and then running the activation function on that total.
+
+#+name: Node-update-fn
+#+begin_src python
+def update(self):
+    inputs = [node.output for node in input_nodes]
+
+    weighted_sum = sum([x*w for x, w in zip(inputs, weights)])
+    weighted_sum += 1           # for bias
+
+    self.output = self.activation_fn(weighted_sum)
+#+end_src
+
+** Inputs
+
+Input nodes are a little different than other nodes. They themselves take input from the data, rather than from other nodes, and have no weighted sum and no activation function. Their output is their input. We can't use the ~Node~ structure we defined above without complicating it needlessly, so we're going to throw together a quick basic ~Input Node~ which is initialized with an value which immediately becomes its output, and has only an ~input()~ function for changing the ~output~ variable, and an empty ~update()~ function, which will ease the running of the program later.
+
+#+name: Input-class
+#+begin_src python
+class InputNode:
+    def __init__(self, input):
+        self.output = input
+
+    def update(self):
+        None
+
+    def input(self, input):
+        self.output = input
+#+end_src
+
+* Activation functions
+
+The evolutionary algorithm is supposed to use a wide variety of activation functions, so that the resulting network also widely varies.
+
+In order to implement the activation functions, we need the ~math~ library in python:
+#+begin_src python :noweb-ref imports :noweb-sep ", "
+math
+#+end_src
+
+#+name: Activation-fns
+#+begin_src python
+def identity_fn(x):
+    return x
+
+def threshold_fn(x):
+    if x >= 0:
+        return 1
+    else:
+        return -1
+
+def sigmoid_fn(x):
+    return 1/(1+exp(-x))
+
+def gaussian_fn(x):
+    u = None # need to figure out u
+    sigma = None # need to figure out sigma; avg?
+    power = -1/2 * ((x-u)/sigma)^2
+
+def tanh_fn(x):
+    return (exp(x) - exp(-x))/(exp(x) + exp(-x))
+#+end_src
+* Evolution algorithm
+
+The algorithm by which we add nodes is this:
+1. Start with Perceptron model (only input and output nodes)
+2. Reweight to minimize error
+3. Randomly select an edge between nodes to add a node with random activation function
+4. Reweight to minimize error
+5. If the minimum error of the new network is lower than the minimum error of the old network, then we keep the new network; otherwise, we return to the old network.
+6. If we're under our iteration count, we loop back to step 3; otherwise, we exit.
+
+We can represent the above algorithm like so:
+
+#+name: evolution-algorithm
+#+begin_src python
+def evolution()
+#+end_src
